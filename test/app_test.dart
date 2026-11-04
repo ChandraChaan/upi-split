@@ -51,6 +51,34 @@ void main() {
     expect(find.text('1 of 3 paid'), findsOneWidget);
   });
 
+  testWidgets('keeps focus on the title while typing; New bill clears it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await app(const HomePage()));
+    final title = find.byKey(const Key('title'));
+    bool titleHasFocus() => tester
+        .widget<EditableText>(
+          find.descendant(of: title, matching: find.byType(EditableText)),
+        )
+        .focusNode
+        .hasFocus;
+
+    await tester.tap(title);
+    await tester.pump();
+    // The first letter turns the title from empty to non-empty; the field
+    // used to be rebuilt at that moment and lose focus.
+    await tester.enterText(title, 'D');
+    await tester.pump();
+    expect(titleHasFocus(), isTrue);
+    await tester.enterText(title, 'Dinner');
+    await tester.pump();
+    expect(titleHasFocus(), isTrue);
+
+    await tester.tap(find.text('New bill'));
+    await tester.pump();
+    expect(tester.widget<TextField>(title).controller!.text, isEmpty);
+  });
+
   testWidgets('remembers your UPI ID and the bill', (tester) async {
     await tester.pumpWidget(await app(const HomePage()));
     await tester.enterText(find.byKey(const Key('my-vpa')), 'chandra@okicici');
