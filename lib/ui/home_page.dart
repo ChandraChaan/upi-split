@@ -95,6 +95,48 @@ class _YouSection extends ConsumerWidget {
   }
 }
 
+/// The bill's title. Keeps one controller for the field's lifetime, so typing
+/// never rebuilds it (and steals focus); a new bill clears it from outside.
+class _TitleField extends StatefulWidget {
+  const _TitleField({required this.title, required this.onChanged});
+
+  final String title;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_TitleField> createState() => _TitleFieldState();
+}
+
+class _TitleFieldState extends State<_TitleField> {
+  late final _controller = TextEditingController(text: widget.title);
+
+  @override
+  void didUpdateWidget(_TitleField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.title != _controller.text) _controller.text = widget.title;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: const Key('title'),
+      controller: _controller,
+      decoration: const InputDecoration(
+        labelText: 'What for?',
+        hintText: 'Dinner at Meghana\'s',
+      ),
+      textCapitalization: TextCapitalization.sentences,
+      onChanged: widget.onChanged,
+    );
+  }
+}
+
 class _BillSection extends ConsumerWidget {
   const _BillSection();
 
@@ -107,16 +149,7 @@ class _BillSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(
-            key: ValueKey('title-${bill.title.isEmpty}'),
-            initialValue: bill.title,
-            decoration: const InputDecoration(
-              labelText: 'What for?',
-              hintText: 'Dinner at Meghana\'s',
-            ),
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: controller.setTitle,
-          ),
+          _TitleField(title: bill.title, onChanged: controller.setTitle),
           const SizedBox(height: 12),
           AmountField(
             fieldKey: const Key('total'),
