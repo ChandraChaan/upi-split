@@ -13,9 +13,11 @@
 
 <p align="center"><b><a href="https://chandrachaan.github.io/upi-split/">Open UPI Split →</a></b></p>
 
+The Android app also includes [Shop](#shop-android-only), a store manager for kirana shops.
+
 ## How it works
 
-1. Enter your name and UPI ID (saved only in your browser).
+1. Enter your name and UPI ID (saved only on your device).
 2. Enter the bill total and add the friends who shared it.
 3. Choose how to split: **equally**, **by shares** (a couple counts as 2), or **by amount**. Turn off "I had a share too" if you paid for others only.
 4. Send each friend their link on WhatsApp, or show them a QR code across the table.
@@ -32,9 +34,13 @@ WhatsApp and SMS don't make `upi://` links tappable, so a raw UPI link in a chat
 
 ## Privacy
 
-- Your UPI ID, name and bills are stored **only in your browser** (local storage). There's no account and no backend.
+Bill splitting:
+
+- Your UPI ID, name and bills are stored **only on your device**. There's no account and no backend.
 - Payment details travel in the link's `#fragment`, which browsers never send to a server, so even the page host can't see who paid whom.
 - The payment itself happens entirely in your friend's UPI app. UPI Split never touches money.
+
+Shop is different: it needs an account, and it stores your shop's data, including customers' names, phone numbers and dues, in Firebase. Nothing connects to Firebase unless you open Shop.
 
 ## Good to know
 
@@ -42,31 +48,49 @@ WhatsApp and SMS don't make `upi://` links tappable, so a raw UPI link in a chat
 - **Some UPI apps limit payment links.** Depending on the app and amount, a payer's app may refuse a pre-filled person-to-person request. The QR code and Copy buttons are there for that case.
 - This is a convenience tool, not a payment service. Check the UPI ID before you share links.
 
+## Shop (Android only)
+
+The **Shop** button in the Android app opens Kirana Mitra (కిరాణా మిత్ర), a store manager for small shops, in Telugu and English. It's currently in internal testing.
+
+- **Khata:** customer credit and payments, outstanding dues, and reminders on WhatsApp or SMS (you press send)
+- **Billing:** Cash, UPI and credit, with digital receipts
+- **Stock:** products, inventory and suppliers
+- **Money:** daily sales, expenses, profit and reports
+- **Teams:** multiple stores, with owner, manager and cashier roles. Staff join with an invite code
+- **Offline:** keeps working with no internet and syncs when the connection returns
+
+Owners and managers can also use the [web admin](https://kirana-mitra-chandra.web.app) to manage stores, staff and reports. Sign in with the same account.
+
+Shop doesn't calculate GST or scan barcodes with the camera. A plug-in barcode scanner works in the search field.
+
 ## Development
 
-A Flutter app (web and Android) built with Riverpod 3 and [upi_kit](https://github.com/ChandraChaan/upi_kit) for UPI links and validation.
+A Flutter app. Bill splitting runs on web and Android, built with Riverpod 3 and [upi_kit](https://github.com/ChandraChaan/upi_kit) for UPI links and validation. Shop is Android only and uses Firebase Auth and Firestore. The web build leaves it out, so the pay page stays small.
 
 ```bash
 flutter pub get
-flutter test                 # split maths, links, screens, accessibility
-flutter run -d chrome
+flutter test                 # bill splitting and the Shop screens
+flutter run -d chrome        # bill splitting
+flutter run                  # Android, with Shop
+./scripts/test_all.sh        # everything, including Firestore rules (needs Java 21+)
 ```
 
 | Folder | What's there |
 |---|---|
 | `lib/split/split.dart` | The split maths: largest-remainder allocation in paise |
 | `lib/split/pay_request.dart` | Share links, UPI links and messages |
-| `lib/split/split_controller.dart` | State, saved to local storage |
+| `lib/split/split_controller.dart` | State, saved on the device |
 | `lib/ui/` | The split screen and the friend's pay page |
+| `lib/app_switcher.dart` | Switches between bill splitting and Shop |
+| `lib/kirana/` | Shop's Android screens |
+| `packages/kirana_core/` | Shop's models, data and offline logic, shared with the web admin |
+| `apps/admin/` | The web admin |
+| `firestore.rules`, `firebase_tests/` | Shop's security rules and their tests |
+
+Running Shop against local emulators, and how to release it, are covered in [docs/KIRANA.md](docs/KIRANA.md). Known limits are in [docs/KIRANA_SECURITY.md](docs/KIRANA_SECURITY.md).
 
 Ideas and bug reports are welcome in [issues](https://github.com/ChandraChaan/upi-split/issues) and [discussions](https://github.com/ChandraChaan/upi-split/discussions).
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
-## Shop (Android only)
-
-The Shop button opens Kirana Mitra, a store manager with khata, billing and stock.
-Bill splitting still needs no account, and Firebase starts only when the shop is
-opened. The web build leaves the shop out. See [docs/KIRANA.md](docs/KIRANA.md).
