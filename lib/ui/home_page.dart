@@ -9,7 +9,9 @@ import '../split/split_controller.dart';
 import 'common.dart';
 
 class HomePage extends ConsumerWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.onOpenShop});
+
+  final VoidCallback? onOpenShop;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -18,6 +20,13 @@ class HomePage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('UPI Split'),
         actions: [
+          if (onOpenShop != null)
+            TextButton.icon(
+              key: const Key('open-shop'),
+              onPressed: onOpenShop,
+              icon: const Icon(Icons.storefront_outlined),
+              label: const Text('Shop'),
+            ),
           TextButton.icon(
             onPressed: controller.newBill,
             icon: const Icon(Icons.add),

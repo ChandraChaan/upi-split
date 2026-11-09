@@ -5,7 +5,10 @@ import 'ui/home_page.dart';
 import 'ui/pay_page.dart';
 
 class UpiSplitApp extends StatelessWidget {
-  const UpiSplitApp({super.key});
+  const UpiSplitApp({super.key, this.onOpenShop});
+
+  /// Null where there is no shop to open, such as the web pay page.
+  final VoidCallback? onOpenShop;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +37,7 @@ class UpiSplitApp extends StatelessWidget {
         }
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => const HomePage(),
+          builder: (_) => HomePage(onOpenShop: onOpenShop),
         );
       },
     );

@@ -13,6 +13,9 @@ analyzer:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
     - "lib/l10n/app_localizations*.dart"
+    # Separate Dart packages, checked on their own by scripts/test_all.sh.
+    - "packages/**"
+    - "apps/**"
 
 linter:
   rules:
