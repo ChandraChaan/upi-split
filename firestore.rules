@@ -1,0 +1,189 @@
+rules_version = '2';
+
+// No Cloud Functions back this app, so these rules are the only server-side
+// protection. Ledgers are append-only; corrections are new reversing entries.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function memberPath(bid) {
+      return /databases/$(database)/documents/businesses/$(bid)/members/$(uid());
+    }
+    function isMember(bid) {
+      return signedIn() && exists(memberPath(bid)) && get(memberPath(bid)).data.active == true;
+    }
+    function role(bid) { return get(memberPath(bid)).data.role; }
+    function isOwner(bid) { return isMember(bid) && role(bid) == 'owner'; }
+    function isManager(bid) { return isMember(bid) && role(bid) in ['owner', 'manager']; }
+    function hasStore(bid, sid) {
+      return isMember(bid) && (role(bid) == 'owner' || sid in get(memberPath(bid)).data.storeIds);
+    }
+    function canManageStore(bid, sid) { return hasStore(bid, sid) && role(bid) in ['owner', 'manager']; }
+    function changed() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+    function authored() { return request.resource.data.byUid == uid(); }
+
+    match /users/{userId} {
+      allow read, write: if signedIn() && userId == uid();
+    }
+
+    match /invites/{code} {
+      // A single invite can be fetched with its unguessable code, not listed.
+      allow get: if signedIn();
+      allow list: if isManager(resource.data.businessId);
+      allow create: if isManager(request.resource.data.businessId)
+        && request.resource.data.role in ['manager', 'cashier']
+        && request.resource.data.createdBy == uid()
+        && request.resource.data.usedBy == null;
+      allow delete: if isManager(resource.data.businessId);
+      // Redeeming: a single claim by the caller, before expiry.
+      allow update: if signedIn()
+        && resource.data.usedBy == null
+        && resource.data.expiresAt > request.time
+        && request.resource.data.usedBy == uid()
+        && changed().hasOnly(['usedBy', 'usedAt']);
+    }
+
+    match /businesses/{bid} {
+      allow read: if isMember(bid);
+      allow create: if signedIn() && request.resource.data.ownerUid == uid();
+      allow update: if isOwner(bid) && !changed().hasAny(['ownerUid']);
+
+      match /members/{memberId} {
+        allow get: if signedIn() && (memberId == uid() || isManager(bid));
+        allow list: if isManager(bid);
+
+        // Owner's own record, written in the batch that creates the business.
+        allow create: if signedIn() && memberId == uid()
+          && request.resource.data.role == 'owner'
+          && getAfter(/databases/$(database)/documents/businesses/$(bid)).data.ownerUid == uid();
+
+        // Joining: must match an unused, unexpired invite exactly, and the
+        // same batch must mark that invite as used by this caller.
+        allow create: if signedIn() && memberId == uid()
+          && request.resource.data.active == true
+          && validInvite(bid, request.resource.data.inviteCode, request.resource.data);
+
+        function validInvite(bid, code, data) {
+          let invite = get(/databases/$(database)/documents/invites/$(code)).data;
+          return invite.businessId == bid
+            && invite.usedBy == null
+            && invite.expiresAt > request.time
+            && invite.role == data.role
+            && invite.storeIds == data.storeIds
+            && getAfter(/databases/$(database)/documents/invites/$(code)).data.usedBy == uid();
+        }
+
+        // Only the owner changes staff, and never an owner record.
+        allow update: if isOwner(bid)
+          && resource.data.role != 'owner'
+          && request.resource.data.role in ['manager', 'cashier']
+          && changed().hasOnly(['role', 'storeIds', 'active']);
+        allow delete: if false;
+      }
+
+      match /stores/{sid} {
+        allow read: if isMember(bid);
+        // The first store is written in the same batch as the owner's member
+        // record, so ownership has to be read from the post-batch state.
+        allow create: if signedIn()
+          && getAfter(/databases/$(database)/documents/businesses/$(bid)).data.ownerUid == uid();
+        allow update: if isOwner(bid);
+        allow delete: if false;
+
+        function int(field) { return request.resource.data[field] is int; }
+
+        match /customers/{id} {
+          allow read: if hasStore(bid, sid);
+          allow create: if hasStore(bid, sid)
+            && request.resource.data.name is string
+            && request.resource.data.name.size() > 0;
+          // Credit limits and archiving are manager decisions.
+          allow update: if canManageStore(bid, sid)
+            || (hasStore(bid, sid) && !changed().hasAny(['creditLimitPaise', 'archived']));
+          allow delete: if false;
+        }
+
+        match /khata/{id} {
+          allow read: if hasStore(bid, sid);
+          allow create: if hasStore(bid, sid) && authored() && int('amountPaise')
+            && (request.resource.data.reversesId == null
+                || (canManageStore(bid, sid) && id == 'rev_' + request.resource.data.reversesId))
+            && (request.resource.data.kind != 'adjustment' || canManageStore(bid, sid));
+          allow update, delete: if false;
+        }
+
+        match /products/{id} {
+          allow read: if hasStore(bid, sid);
+          allow create: if canManageStore(bid, sid);
+          // Cashiers sell stock but cannot change prices or details.
+          allow update: if canManageStore(bid, sid)
+            || (hasStore(bid, sid) && changed().hasOnly(['stockMilli', 'updatedAt']));
+          allow delete: if false;
+        }
+
+        match /stockMoves/{id} {
+          allow read: if hasStore(bid, sid);
+          allow create: if hasStore(bid, sid) && authored() && int('deltaMilli')
+            && (request.resource.data.reason in ['sale', 'voidSale'] || canManageStore(bid, sid));
+          allow update, delete: if false;
+        }
+
+        match /bills/{id} {
+          allow read: if hasStore(bid, sid);
+          allow create: if hasStore(bid, sid) && authored()
+            && request.resource.data.voided == false
+            && int('totalPaise') && int('subtotalPaise') && int('discountPaise')
+            && int('cashPaise') && int('upiPaise') && int('creditPaise')
+            && request.resource.data.totalPaise
+                == request.resource.data.subtotalPaise - request.resource.data.discountPaise
+            && request.resource.data.totalPaise
+                == request.resource.data.cashPaise + request.resource.data.upiPaise
+                   + request.resource.data.creditPaise
+            && (request.resource.data.creditPaise == 0 || request.resource.data.customerId is string);
+          allow update: if canManageStore(bid, sid)
+            && resource.data.voided == false
+            && request.resource.data.voided == true
+            && changed().hasOnly(['voided', 'voidReason', 'voidedBy', 'voidedAt']);
+          allow delete: if false;
+        }
+
+        match /expenses/{id} {
+          allow read: if hasStore(bid, sid);
+          allow create: if hasStore(bid, sid) && authored() && int('amountPaise')
+            && request.resource.data.amountPaise > 0;
+          allow update: if canManageStore(bid, sid)
+            && resource.data.voided == false
+            && request.resource.data.voided == true
+            && changed().hasOnly(['voided', 'voidedBy', 'voidedAt']);
+          allow delete: if false;
+        }
+
+        match /suppliers/{id} {
+          allow read, create, update: if canManageStore(bid, sid);
+          allow delete: if false;
+        }
+
+        match /supplierTxns/{id} {
+          allow read: if canManageStore(bid, sid);
+          allow create: if canManageStore(bid, sid) && authored() && int('amountPaise');
+          allow update, delete: if false;
+        }
+
+        match /days/{day} {
+          allow read: if hasStore(bid, sid);
+          allow create, update: if hasStore(bid, sid) && request.resource.data.dayKey == day;
+          allow delete: if false;
+        }
+
+        match /reminders/{id} {
+          allow read: if hasStore(bid, sid);
+          allow create: if hasStore(bid, sid) && authored();
+          allow update, delete: if false;
+        }
+      }
+    }
+  }
+}

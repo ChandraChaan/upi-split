@@ -64,3 +64,9 @@ Ideas and bug reports are welcome in [issues](https://github.com/ChandraChaan/up
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Shop (Android only)
+
+The Shop button opens Kirana Mitra, a store manager with khata, billing and stock.
+Bill splitting still needs no account, and Firebase starts only when the shop is
+opened. The web build leaves the shop out. See [docs/KIRANA.md](docs/KIRANA.md).

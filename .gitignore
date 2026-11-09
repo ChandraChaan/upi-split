@@ -45,3 +45,11 @@ app.*.map.json
 /android/app/release
 
 .claude/
+
+# Kirana (web admin, Firebase tooling, secrets)
+build/
+node_modules/
+.firebase/
+*.keystore
+*.jks
+key.properties
