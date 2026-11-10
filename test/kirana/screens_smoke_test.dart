@@ -6,11 +6,13 @@ import 'package:upi_split/kirana/screens/checkout_screen.dart';
 import 'package:upi_split/kirana/screens/customer_detail_screen.dart';
 import 'package:upi_split/kirana/screens/customer_form_screen.dart';
 import 'package:upi_split/kirana/screens/expenses_screen.dart';
+import 'package:upi_split/kirana/screens/market_purchase_screen.dart';
 import 'package:upi_split/kirana/screens/product_screens.dart';
 import 'package:upi_split/kirana/screens/receipt_screen.dart';
 import 'package:upi_split/kirana/screens/reminders_screen.dart';
 import 'package:upi_split/kirana/screens/reports_screen.dart';
 import 'package:upi_split/kirana/screens/settings_screen.dart';
+import 'package:upi_split/kirana/screens/stock_screen.dart';
 import 'package:upi_split/kirana/screens/suppliers_screen.dart';
 
 import 'package:upi_split/kirana/widgets/common.dart';
@@ -88,6 +90,9 @@ void main() {
       ),
     ),
     'expenses': () => const ExpensesScreen(),
+    'purchases': () => const PurchasesScreen(),
+    'wholesale purchase': () => const MarketPurchaseScreen(),
+    'stock': () => const StockScreen(),
     'expense add': () => const ExpensesScreen(openAdd: true),
     'reports': () => const ReportsScreen(),
     'settings': () => const SettingsScreen(),
@@ -105,8 +110,8 @@ void main() {
           size: const Size(360, 640),
         );
         final labels = language == 'te'
-            ? ['బిల్లింగ్', 'ఖాతా', 'స్టాక్', 'ఇంకా']
-            : ['Billing', 'Khata', 'Stock', 'More'];
+            ? ['అమ్మకం', 'ఖాతా', 'ఈరోజు', 'ఇంకా']
+            : ['Sell', 'Khata', 'Today', 'More'];
         for (final label in labels) {
           await h.tab(label);
           expect(find.byType(ErrorState), findsNothing);
@@ -162,7 +167,9 @@ void main() {
 
       testWidgets('billing sheets and split payment', (t) async {
         final h = await pumpApp(t, language: language, size: size);
-        await h.tab(language == 'te' ? 'బిల్లింగ్' : 'Billing');
+        await h.tab(language == 'te' ? 'అమ్మకం' : 'Sell');
+        await t.tap(find.byKey(const Key('sell_items')));
+        await settle(t);
         await t.tap(find.byKey(const Key('add_custom_line')));
         await settle(t);
         expect(find.byType(BottomSheet), findsOneWidget);

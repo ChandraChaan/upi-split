@@ -4,8 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:kirana_core/kirana_core.dart';
 
 import '../widgets/common.dart';
+import 'customer_detail_screen.dart';
 import 'expenses_screen.dart';
+import 'market_purchase_screen.dart';
 import 'reminders_screen.dart';
+import 'shell.dart';
+import 'stock_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.onOpenTab});
@@ -121,9 +125,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ),
                     if (manager)
                       StatTile(
-                        key: const Key('home_profit'),
-                        label: tr('profit'),
-                        value: formatRupees(day.netProfitPaise),
+                        key: const Key('home_bought'),
+                        label: tr('bought_today'),
+                        value: formatRupees(day.purchasePaise),
                       ),
                   ],
                 ),
@@ -149,25 +153,59 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ],
             ),
           ),
+          if (manager) _MonthCard(today: _today),
           const SizedBox(height: 10),
           Live<List<Customer>>(
             stream: (repo) => repo.customers(),
             builder: (context, customers) {
               final outstanding = totalOutstanding(customers);
               final remind = customersToRemind(customers, DateTime.now());
-              return TwoColumn(
+              final owing = customers.where((c) => c.hasDues).toList()
+                ..sort((a, b) => b.balancePaise.compareTo(a.balancePaise));
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  StatTile(
-                    label: tr('total_outstanding'),
-                    value: formatRupees(outstanding),
-                    color: KiranaColors.dues,
-                    onTap: () => widget.onOpenTab(2),
+                  TwoColumn(
+                    children: [
+                      StatTile(
+                        label: tr('total_outstanding'),
+                        value: formatRupees(outstanding),
+                        color: KiranaColors.dues,
+                        onTap: () => widget.onOpenTab(Tabs.khata),
+                      ),
+                      StatTile(
+                        label: tr('customers_to_remind'),
+                        value: '${remind.length}',
+                        onTap: () => push(context, const RemindersScreen()),
+                      ),
+                    ],
                   ),
-                  StatTile(
-                    label: tr('customers_to_remind'),
-                    value: '${remind.length}',
-                    onTap: () => push(context, const RemindersScreen()),
-                  ),
+                  if (owing.isNotEmpty) ...[
+                    SectionTitle(tr('top_dues')),
+                    Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          for (final c in owing.take(5))
+                            ListTile(
+                              key: ValueKey('top_due_${c.id}'),
+                              title: Text(c.name),
+                              trailing: Text(
+                                formatRupees(c.balancePaise),
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: KiranaColors.dues,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              onTap: () => push(
+                                context,
+                                CustomerDetailScreen(customerId: c.id),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               );
             },
@@ -178,11 +216,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               final low = products
                   .where((p) => p.isLowStock || p.stockMilli < 0)
                   .length;
+              // Shops that sell from the keypad keep no product list.
+              if (low == 0) return const SizedBox.shrink();
               return StatTile(
+                key: const Key('home_low_stock'),
                 label: tr('low_stock_items'),
                 value: '$low',
-                color: low > 0 ? KiranaColors.warning : null,
-                onTap: () => widget.onOpenTab(3),
+                color: KiranaColors.warning,
+                onTap: () => push(context, const StockScreen()),
               );
             },
           ),
@@ -190,16 +231,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           TwoColumn(
             children: [
               _Action(
-                key: const Key('quick_new_bill'),
+                key: const Key('quick_sell'),
                 icon: Icons.point_of_sale,
-                label: tr('new_bill'),
-                onTap: () => widget.onOpenTab(1),
+                label: tr('sell'),
+                onTap: () => widget.onOpenTab(Tabs.sell),
               ),
               _Action(
                 icon: Icons.payments_outlined,
                 label: tr('receive_payment'),
-                onTap: () => widget.onOpenTab(2),
+                onTap: () => widget.onOpenTab(Tabs.khata),
               ),
+              if (manager)
+                _Action(
+                  key: const Key('quick_market_purchase'),
+                  icon: Icons.local_shipping_outlined,
+                  label: tr('market_purchase'),
+                  onTap: () => push(context, const MarketPurchaseScreen()),
+                ),
               _Action(
                 icon: Icons.receipt_long_outlined,
                 label: tr('add_expense'),
@@ -214,6 +262,62 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// This month's money in and out. Without product costs the shop cannot know
+/// a true profit, so this says plainly what it counts.
+class _MonthCard extends StatelessWidget {
+  const _MonthCard({required this.today});
+
+  final String today;
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = context.tr;
+    final theme = Theme.of(context);
+    final from = '${today.substring(0, 8)}01';
+    return Live<List<DayRollup>>(
+      id: today,
+      stream: (repo) => repo.days(from: from, to: today),
+      builder: (context, days) {
+        int sum(int Function(DayRollup d) f) =>
+            days.fold(0, (total, d) => total + f(d));
+        final sold = sum((d) => d.salesPaise);
+        final bought = sum((d) => d.purchasePaise);
+        final spent = sum((d) => d.expensePaise);
+        final left = sold - bought - spent;
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(tr('month_title'), style: theme.textTheme.titleMedium),
+                const SizedBox(height: 4),
+                LabelValue(tr('month_sold'), formatRupees(sold)),
+                LabelValue(tr('month_bought'), formatRupees(bought)),
+                LabelValue(tr('expenses'), formatRupees(spent)),
+                const Divider(),
+                LabelValue(
+                  tr('month_left'),
+                  formatRupees(left),
+                  key: const Key('home_profit'),
+                  color: left < 0 ? KiranaColors.dues : KiranaColors.received,
+                  strong: true,
+                ),
+                Text(
+                  tr('month_left_hint'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

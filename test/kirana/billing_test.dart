@@ -19,7 +19,7 @@ void main() {
     'a cash sale saves and shows the receipt without any network wait',
     (t) async {
       final h = await pumpApp(t, role: MemberRole.cashier);
-      await h.tab('Billing');
+      await h.itemBilling();
 
       await t.tap(find.byKey(const ValueKey('product_soap')));
       await settle(t);
@@ -59,13 +59,8 @@ void main() {
   testWidgets('a scanned barcode adds the product and clears the field', (
     t,
   ) async {
-    await pumpApp(t);
-    final h = find.descendant(
-      of: find.byType(NavigationBar),
-      matching: find.text('Billing'),
-    );
-    await t.tap(h);
-    await settle(t);
+    final h = await pumpApp(t);
+    await h.itemBilling();
 
     await t.enterText(find.byKey(const Key('billing_search')), '8901000000028');
     await t.testTextInput.receiveAction(TextInputAction.done);
@@ -78,7 +73,7 @@ void main() {
 
   testWidgets('search matches English and Telugu names', (t) async {
     final h = await pumpApp(t);
-    await h.tab('Billing');
+    await h.itemBilling();
     await t.enterText(find.byKey(const Key('billing_search')), 'సబ్బు');
     await settle(t);
     expect(find.byKey(const ValueKey('product_soap')), findsOneWidget);
@@ -94,7 +89,7 @@ void main() {
     'loose goods take decimal quantities, and one-off lines and discount apply',
     (t) async {
       final h = await pumpApp(t);
-      await h.tab('Billing');
+      await h.itemBilling();
 
       await t.tap(find.byKey(const ValueKey('product_rice')));
       await settle(t);
@@ -127,7 +122,7 @@ void main() {
     'all credit needs a customer; quick-add one and write to the khata',
     (t) async {
       final h = await pumpApp(t);
-      await h.tab('Billing');
+      await h.itemBilling();
       await t.tap(find.byKey(const ValueKey('product_soap')));
       await settle(t);
       await tapKey(t, 'billing_checkout');
@@ -158,7 +153,7 @@ void main() {
     t,
   ) async {
     final h = await pumpApp(t);
-    await h.tab('Billing');
+    await h.itemBilling();
     for (var i = 0; i < 6; i++) {
       await t.tap(find.byKey(const ValueKey('product_soap')));
       await settle(t);
@@ -187,7 +182,7 @@ void main() {
 
   testWidgets('a split must add up before it can be saved', (t) async {
     final h = await pumpApp(t);
-    await h.tab('Billing');
+    await h.itemBilling();
     await t.tap(find.byKey(const ValueKey('product_soap')));
     await settle(t);
     await tapKey(t, 'billing_checkout');

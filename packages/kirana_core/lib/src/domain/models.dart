@@ -469,6 +469,19 @@ class Supplier {
   final bool archived;
 }
 
+/// One line of the paper list from the wholesale market.
+class PurchaseLine {
+  const PurchaseLine({required this.name, this.amountPaise = 0});
+  factory PurchaseLine.fromMap(Json m) =>
+      PurchaseLine(name: _str(m['name']), amountPaise: _int(m['amountPaise']));
+  final String name;
+
+  /// 0 when only the item was noted, not its price.
+  final int amountPaise;
+
+  Json toMap() => {'name': name.trim(), 'amountPaise': amountPaise};
+}
+
 class SupplierTxn {
   const SupplierTxn({
     required this.id,
@@ -479,6 +492,7 @@ class SupplierTxn {
     required this.byName,
     this.method,
     this.note = '',
+    this.items = const [],
   });
   factory SupplierTxn.fromMap(String id, Json m) => SupplierTxn(
         id: id,
@@ -491,6 +505,10 @@ class SupplierTxn {
             ? null
             : _enum(PaymentMethod.values, m['method'], PaymentMethod.cash),
         note: _str(m['note']),
+        items: (m['items'] as List? ?? const [])
+            .whereType<Map<Object?, Object?>>()
+            .map((e) => PurchaseLine.fromMap(Map<String, dynamic>.from(e)))
+            .toList(),
       );
   final String id;
   final String supplierId;
@@ -502,6 +520,9 @@ class SupplierTxn {
   final String byName;
   final PaymentMethod? method;
   final String note;
+
+  /// What was bought, when it was noted down.
+  final List<PurchaseLine> items;
 }
 
 class StockMove {

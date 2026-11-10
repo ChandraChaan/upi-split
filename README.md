@@ -52,10 +52,13 @@ Shop is different: it needs an account, and it stores your shop's data, includin
 
 The **Shop** button in the Android app opens Kirana Mitra (కిరాణా మిత్ర), a store manager for small shops, in Telugu and English. It's currently in internal testing.
 
+- **Sell:** a keypad for the counter, so you don't need a product list. Tap ₹1, ₹2, ₹10 or type any amount (5 × ₹2 works too), then press Cash, UPI or Pay later
+- **Pay later:** pick the customer and enter what they paid now. The rest goes on their khata, and anything extra comes off their old dues
 - **Khata:** customer credit and payments, outstanding dues, and reminders on WhatsApp or SMS (you press send)
-- **Billing:** Cash, UPI and credit, with digital receipts
-- **Stock:** products, inventory and suppliers
-- **Money:** daily sales, expenses, profit and reports
+- **Wholesale purchase:** where you bought, the total, what you still owe, the auto fare, and the item list if you have time
+- **Today:** sales, cash in the drawer, what you bought, and this month's sales minus purchases and expenses
+- **Products and stock (optional):** itemised bills with receipts, inventory and suppliers, for shops that keep a product list
+- **Money:** expenses and reports
 - **Teams:** multiple stores, with owner, manager and cashier roles. Staff join with an invite code
 - **Offline:** keeps working with no internet and syncs when the connection returns
 

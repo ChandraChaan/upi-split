@@ -73,6 +73,13 @@ class Harness {
     await settle(tester);
   }
 
+  /// The itemised bill, opened from the sell keypad's list button.
+  Future<void> itemBilling() async {
+    await tab('Sell');
+    await tester.tap(find.byKey(const Key('sell_items')));
+    await settle(tester);
+  }
+
   Future<void> tab(String label) async {
     await tester.tap(
       find.descendant(

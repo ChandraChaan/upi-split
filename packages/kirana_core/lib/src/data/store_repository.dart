@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../domain/cart.dart';
+import '../domain/counter.dart';
 import '../domain/models.dart';
 import '../domain/money.dart';
 import 'sync_monitor.dart';
@@ -113,6 +114,16 @@ class StoreRepository {
           .limit(limit)
           .snapshots()
           .map((s) => s.docs.map((d) => SupplierTxn.fromMap(d.id, d.data())).toList());
+
+  /// Latest purchases from every supplier, newest first.
+  Stream<List<SupplierTxn>> recentPurchases({int limit = 60}) => _c('supplierTxns')
+      .orderBy('at', descending: true)
+      .limit(limit)
+      .snapshots()
+      .map((s) => s.docs
+          .map((d) => SupplierTxn.fromMap(d.id, d.data()))
+          .where((t) => t.kind == SupplierTxnKind.purchase)
+          .toList());
 
   /// Rollups for the inclusive day-key range.
   Stream<List<DayRollup>> days({required String from, required String to}) => _c('days')
@@ -339,6 +350,94 @@ class StoreRepository {
     required String number,
     Customer? customer,
   }) {
+    final batch = db.batch();
+    final bill = _billInto(batch, cart: cart, payment: payment, number: number, customer: customer);
+    _commit('createBill', batch);
+    return bill;
+  }
+
+  /// A sale from the sell keypad. Lines are free-form, so stock is untouched.
+  /// Whatever the customer paid beyond the sale comes off their earlier dues,
+  /// in the same write.
+  CounterSale sellAtCounter({
+    required List<TapeEntry> entries,
+    required CounterPayment payment,
+    required String number,
+    required String itemName,
+    String itemNameTe = '',
+    Customer? customer,
+    PaymentMethod method = PaymentMethod.cash,
+  }) {
+    if (entries.isEmpty) throw const InvalidOperation('empty');
+    if (payment.towardsDuesPaise > 0 && customer == null) {
+      throw const InvalidOperation('credit_needs_customer');
+    }
+    if (method == PaymentMethod.credit) throw const InvalidOperation('invalid_method');
+    final cart = Cart();
+    for (final e in entries) {
+      cart.lines.add(CartLine(
+        name: itemName,
+        nameTe: itemNameTe,
+        unit: Unit.piece,
+        qtyMilli: e.count * 1000,
+        pricePaise: e.pricePaise,
+      ));
+    }
+    final batch = db.batch();
+    final bill = _billInto(batch, cart: cart, payment: payment.split, number: number, customer: customer);
+    String? paymentId;
+    if (payment.towardsDuesPaise > 0) {
+      paymentId = _addKhata(batch,
+          customerId: customer!.id,
+          kind: KhataKind.payment,
+          signedPaise: -payment.towardsDuesPaise,
+          method: method,
+          note: number);
+      _roll(batch, bill.dayKey, {
+        method == PaymentMethod.cash ? 'collectionCashPaise' : 'collectionUpiPaise':
+            payment.towardsDuesPaise,
+      });
+    }
+    _commit('createBill', batch);
+    return CounterSale(
+      bill: bill,
+      paymentId: paymentId,
+      paymentPaise: payment.towardsDuesPaise,
+      paymentMethod: paymentId == null ? null : method,
+    );
+  }
+
+  /// Takes back a counter sale saved by mistake, with any dues payment in it.
+  void undoCounterSale(CounterSale sale, {required String reason}) {
+    _requireManager();
+    if (reason.trim().isEmpty) throw const InvalidOperation('reason_required');
+    final batch = db.batch();
+    _voidInto(batch, sale.bill, reason);
+    final paymentId = sale.paymentId;
+    if (paymentId != null) {
+      _addKhata(batch,
+          id: 'rev_$paymentId',
+          customerId: sale.bill.customerId!,
+          kind: KhataKind.payment,
+          signedPaise: sale.paymentPaise,
+          method: sale.paymentMethod,
+          note: reason,
+          reversesId: paymentId);
+      _roll(batch, sale.bill.dayKey, {
+        sale.paymentMethod == PaymentMethod.upi ? 'collectionUpiPaise' : 'collectionCashPaise':
+            -sale.paymentPaise,
+      });
+    }
+    _commit('voidBill', batch);
+  }
+
+  Bill _billInto(
+    WriteBatch batch, {
+    required Cart cart,
+    required PaymentSplit payment,
+    required String number,
+    Customer? customer,
+  }) {
     final error = cart.validate(payment, customer: customer);
     if (error != null) throw InvalidOperation(error.name);
 
@@ -365,7 +464,6 @@ class StoreRepository {
       customerPhone: customer?.phone ?? '',
     );
 
-    final batch = db.batch();
     batch.set(ref, {
       'number': number,
       'items': items.map((i) => i.toMap()).toList(),
@@ -401,7 +499,6 @@ class StoreRepository {
           note: number);
     }
     _roll(batch, key, _billDeltas(bill, 1), items: _itemDeltas(items, 1));
-    _commit('createBill', batch);
     return bill;
   }
 
@@ -409,9 +506,14 @@ class StoreRepository {
   /// the totals of the day it was sold.
   void voidBill(Bill bill, {required String reason}) {
     _requireManager();
-    if (bill.voided) throw const InvalidOperation('already_voided');
     if (reason.trim().isEmpty) throw const InvalidOperation('reason_required');
     final batch = db.batch();
+    _voidInto(batch, bill, reason);
+    _commit('voidBill', batch);
+  }
+
+  void _voidInto(WriteBatch batch, Bill bill, String reason) {
+    if (bill.voided) throw const InvalidOperation('already_voided');
     batch.update(_c('bills').doc(bill.id), {
       'voided': true,
       'voidReason': reason.trim(),
@@ -432,7 +534,6 @@ class StoreRepository {
           note: reason.trim());
     }
     _roll(batch, bill.dayKey, _billDeltas(bill, -1), items: _itemDeltas(bill.items, -1));
-    _commit('voidBill', batch);
   }
 
   Map<String, int> _billDeltas(Bill b, int sign) => {
@@ -466,13 +567,27 @@ class StoreRepository {
     String note = '',
     DateTime? at,
   }) {
+    final batch = db.batch();
+    final id = _expenseInto(batch,
+        category: category, amountPaise: amountPaise, method: method, note: note, at: at);
+    _commit('addExpense', batch);
+    return id;
+  }
+
+  String _expenseInto(
+    WriteBatch batch, {
+    required String category,
+    required int amountPaise,
+    required PaymentMethod method,
+    String note = '',
+    DateTime? at,
+  }) {
     if (amountPaise <= 0) throw const InvalidOperation('amount_required');
     if (method == PaymentMethod.credit) throw const InvalidOperation('invalid_method');
     if (category.trim().isEmpty) throw const InvalidOperation('category_required');
     final when = at ?? _clock();
     final key = dayKey(when);
     final ref = _c('expenses').doc();
-    final batch = db.batch();
     batch.set(ref, {
       'category': category.trim(),
       'amountPaise': amountPaise,
@@ -486,7 +601,6 @@ class StoreRepository {
       'createdAt': FieldValue.serverTimestamp(),
     });
     _roll(batch, key, _expenseDeltas(amountPaise, method, 1));
-    _commit('addExpense', batch);
     return ref.id;
   }
 
@@ -555,6 +669,76 @@ class StoreRepository {
     String note = '',
   }) {
     _requireManager();
+    final batch = db.batch();
+    _purchaseInto(batch,
+        supplierId: supplierId,
+        amountPaise: amountPaise,
+        paidPaise: paidPaise,
+        method: method,
+        lines: lines,
+        note: note);
+    _commit('recordSupplierPurchase', batch);
+  }
+
+  /// The morning trip to the wholesale market, in one write: the purchase,
+  /// what was paid now (the rest is owed to the wholesaler), the paper list,
+  /// and the auto or transport fare as a cash expense. A wholesaler not yet
+  /// saved is added by [supplierName]. Returns the supplier's id.
+  String recordMarketPurchase({
+    String? supplierId,
+    String supplierName = '',
+    required int amountPaise,
+    required int paidPaise,
+    PaymentMethod method = PaymentMethod.cash,
+    List<PurchaseLine> items = const [],
+    int transportPaise = 0,
+    String note = '',
+  }) {
+    _requireManager();
+    if (transportPaise < 0) throw const InvalidOperation('amount_required');
+    final listed = items.where((i) => i.name.trim().isNotEmpty).toList();
+    if (listed.length > maxCartLines) throw const InvalidOperation('too_many_lines');
+    final batch = db.batch();
+    var id = supplierId;
+    if (id == null) {
+      if (supplierName.trim().isEmpty) throw const InvalidOperation('name_required');
+      final ref = _c('suppliers').doc();
+      id = ref.id;
+      batch.set(ref, {
+        'name': supplierName.trim(),
+        'phone': '',
+        'address': '',
+        'gstin': '',
+        'balancePaise': 0,
+        'archived': false,
+        ..._stamp(),
+      });
+    }
+    _purchaseInto(batch,
+        supplierId: id,
+        amountPaise: amountPaise,
+        paidPaise: paidPaise,
+        method: method,
+        items: listed,
+        note: note);
+    if (transportPaise > 0) {
+      _expenseInto(batch,
+          category: 'transport', amountPaise: transportPaise, method: PaymentMethod.cash);
+    }
+    _commit('recordSupplierPurchase', batch);
+    return id;
+  }
+
+  void _purchaseInto(
+    WriteBatch batch, {
+    required String supplierId,
+    required int amountPaise,
+    required int paidPaise,
+    required PaymentMethod method,
+    List<StockInLine> lines = const [],
+    List<PurchaseLine> items = const [],
+    String note = '',
+  }) {
     if (amountPaise <= 0) throw const InvalidOperation('amount_required');
     if (paidPaise < 0 || paidPaise > amountPaise) throw const InvalidOperation('invalid_paid');
     if (paidPaise > 0 && method == PaymentMethod.credit) {
@@ -562,13 +746,13 @@ class StoreRepository {
     }
     if (lines.length > maxCartLines) throw const InvalidOperation('too_many_lines');
     final now = _clock();
-    final batch = db.batch();
     batch.set(_c('supplierTxns').doc(), {
       'supplierId': supplierId,
       'kind': SupplierTxnKind.purchase.name,
       'amountPaise': amountPaise,
       'method': null,
       'note': note.trim(),
+      if (items.isNotEmpty) 'items': items.map((i) => i.toMap()).toList(),
       'at': Timestamp.fromDate(now),
       'byUid': actor.uid,
       'byName': actor.name,
@@ -588,7 +772,6 @@ class StoreRepository {
       if (paidPaise > 0)
         method == PaymentMethod.cash ? 'supplierCashPaise' : 'supplierUpiPaise': paidPaise,
     });
-    _commit('recordSupplierPurchase', batch);
   }
 
   void recordSupplierPayment({

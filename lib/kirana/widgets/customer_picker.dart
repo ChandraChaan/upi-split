@@ -3,6 +3,16 @@ import 'package:kirana_core/kirana_core.dart';
 
 import 'common.dart';
 
+int _recentFirst(Customer a, Customer b) {
+  final at = a.lastTxnAt;
+  final bt = b.lastTxnAt;
+  if (at == null || bt == null) {
+    if (at != bt) return at == null ? 1 : -1;
+    return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+  }
+  return bt.compareTo(at);
+}
+
 Future<Customer?> pickCustomer(BuildContext context) {
   return showModalBottomSheet<Customer>(
     context: context,
@@ -137,6 +147,8 @@ class _CustomerPickerState extends State<_CustomerPicker> {
                         c.name.toLowerCase().contains(q) || c.phone.contains(q),
                   )
                   .toList();
+              // Regulars come back daily, so the most recent are on top.
+              if (q.isEmpty) list.sort(_recentFirst);
               if (list.isEmpty) {
                 return EmptyState(
                   icon: Icons.person_search,

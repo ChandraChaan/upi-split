@@ -207,6 +207,14 @@ class SupplierDetailScreen extends StatelessWidget {
                               [
                                 if (t.method != null)
                                   methodLabel(tr, t.method!),
+                                if (t.items.isNotEmpty)
+                                  t.items
+                                      .map(
+                                        (i) => i.amountPaise > 0
+                                            ? '${i.name} ${formatRupees(i.amountPaise)}'
+                                            : i.name,
+                                      )
+                                      .join(', '),
                                 if (t.note.isNotEmpty) t.note,
                                 '${formatDateTime(t.at, language)} · ${t.byName}',
                               ].join('\n'),
