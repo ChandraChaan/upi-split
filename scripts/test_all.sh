@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-for project in . packages/kirana_core apps/admin; do
+for project in . packages/kirana_core apps/admin apps/shop_web; do
   echo "== $project"
   (cd "$project" && flutter pub get >/dev/null && flutter analyze --no-pub && flutter test --no-pub)
 done

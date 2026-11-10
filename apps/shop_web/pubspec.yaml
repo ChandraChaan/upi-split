@@ -1,0 +1,31 @@
+name: kirana_shop_web
+description: "Kirana Mitra Shop in the browser, for phones that can't install the Android app."
+publish_to: none
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The Shop screens live in the UPI Split app; this project only gives them
+  # a web entry point, page and icons.
+  upi_split:
+    path: ../..
+  firebase_core: ^5.1.0
+  shared_preferences: ^2.5.6
+  web: ^1.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+# Same as the app at the repo root.
+dependency_overrides:
+  intl: ^0.20.3
+
+flutter:
+  uses-material-design: true

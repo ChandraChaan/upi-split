@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -6,11 +5,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:kirana_core/kirana_core.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../util/labels.dart';
+import '../util/share_file.dart';
 import '../widgets/common.dart';
 import 'bills_screen.dart';
 
@@ -54,12 +53,12 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
           _receiptKey.currentContext!.findRenderObject()!
               as RenderRepaintBoundary;
       final bytes = await _renderPng(boundary);
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/receipt_${bill.id}.png');
-      await file.writeAsBytes(bytes, flush: true);
-      await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path, mimeType: 'image/png')]),
+      final file = await shareableFile(
+        bytes,
+        name: 'receipt_${bill.id}.png',
+        mimeType: 'image/png',
       );
+      await SharePlus.instance.share(ShareParams(files: [file]));
     } catch (e) {
       debugPrint('Receipt image share failed: $e');
       if (mounted) showMessage(context, tr('share_failed'));

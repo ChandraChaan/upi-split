@@ -9,7 +9,7 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
-    "public": "apps/admin/build/web",
+    "public": "build/hosting",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -17,8 +17,23 @@
     ],
     "rewrites": [
       {
+        "source": "/shop/**",
+        "destination": "/shop/index.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
       }
     ]
   },

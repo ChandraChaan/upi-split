@@ -13,7 +13,7 @@
 
 <p align="center"><b><a href="https://chandrachaan.github.io/upi-split/">Open UPI Split →</a></b></p>
 
-The Android app also includes [Shop](#shop-android-only), a store manager for kirana shops.
+The Android app also includes [Shop](#shop), a store manager for kirana shops. iPhones can use it as a web app.
 
 ## How it works
 
@@ -48,7 +48,7 @@ Shop is different: it needs an account, and it stores your shop's data, includin
 - **Some UPI apps limit payment links.** Depending on the app and amount, a payer's app may refuse a pre-filled person-to-person request. The QR code and Copy buttons are there for that case.
 - This is a convenience tool, not a payment service. Check the UPI ID before you share links.
 
-## Shop (Android only)
+## Shop
 
 The **Shop** button in the Android app opens Kirana Mitra (కిరాణా మిత్ర), a store manager for small shops, in Telugu and English. It's currently in internal testing.
 
@@ -62,13 +62,15 @@ The **Shop** button in the Android app opens Kirana Mitra (కిరాణా �
 - **Teams:** multiple stores, with owner, manager and cashier roles. Staff join with an invite code
 - **Offline:** keeps working with no internet and syncs when the connection returns
 
+On an iPhone, or any phone without the Android app, open [the Shop web app](https://kirana-mitra-chandra.web.app/shop/) in Safari and tap Share → **Add to Home Screen**. It opens full screen like an app, with the same account and data.
+
 Owners and managers can also use the [web admin](https://kirana-mitra-chandra.web.app) to manage stores, staff and reports. Sign in with the same account.
 
 Shop doesn't calculate GST or scan barcodes with the camera. A plug-in barcode scanner works in the search field.
 
 ## Development
 
-A Flutter app. Bill splitting runs on web and Android, built with Riverpod 3 and [upi_kit](https://github.com/ChandraChaan/upi_kit) for UPI links and validation. Shop is Android only and uses Firebase Auth and Firestore. The web build leaves it out, so the pay page stays small.
+A Flutter app. Bill splitting runs on web and Android, built with Riverpod 3 and [upi_kit](https://github.com/ChandraChaan/upi_kit) for UPI links and validation. Shop uses Firebase Auth and Firestore. It runs in the Android app and as its own web app (`apps/shop_web`); the bill-splitting web build leaves it out, so the pay page stays small.
 
 ```bash
 flutter pub get
@@ -88,6 +90,7 @@ flutter run                  # Android, with Shop
 | `lib/kirana/` | Shop's Android screens |
 | `packages/kirana_core/` | Shop's models, data and offline logic, shared with the web admin |
 | `apps/admin/` | The web admin |
+| `apps/shop_web/` | Shop as a web app, for iPhones |
 | `firestore.rules`, `firebase_tests/` | Shop's security rules and their tests |
 
 Running Shop against local emulators, and how to release it, are covered in [docs/KIRANA.md](docs/KIRANA.md). Known limits are in [docs/KIRANA_SECURITY.md](docs/KIRANA_SECURITY.md).
