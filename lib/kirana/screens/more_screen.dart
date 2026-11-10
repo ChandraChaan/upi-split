@@ -6,9 +6,11 @@ import '../shop_exit.dart';
 import '../widgets/common.dart';
 import 'bills_screen.dart';
 import 'expenses_screen.dart';
+import 'market_purchase_screen.dart';
 import 'reminders_screen.dart';
 import 'reports_screen.dart';
 import 'settings_screen.dart';
+import 'stock_screen.dart';
 import 'suppliers_screen.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -32,6 +34,19 @@ class MoreScreen extends StatelessWidget {
       appBar: KiranaBar(title: tr('more')),
       body: ListView(
         children: [
+          if (manager)
+            item(
+              Icons.local_shipping_outlined,
+              tr('purchases'),
+              const PurchasesScreen(),
+              key: const Key('more_purchases'),
+            ),
+          item(
+            Icons.inventory_2_outlined,
+            tr('products_stock'),
+            const StockScreen(),
+            key: const Key('more_stock'),
+          ),
           item(
             Icons.notifications_active_outlined,
             tr('reminders'),

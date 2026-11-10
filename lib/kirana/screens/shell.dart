@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:kirana_core/kirana_core.dart';
 
-import 'billing_screen.dart';
 import 'home_screen.dart';
 import 'khata_screen.dart';
 import 'more_screen.dart';
-import 'stock_screen.dart';
+import 'sell_screen.dart';
 
-/// The five bottom-navigation tabs. Tabs are built on first visit and then
-/// kept alive, so a half-made bill survives switching to Khata and back.
+/// Tab indexes, for screens that send the user to another tab.
+abstract final class Tabs {
+  static const sell = 0;
+  static const khata = 1;
+  static const today = 2;
+  static const more = 3;
+}
+
+/// The bottom-navigation tabs. Selling comes first because it happens all
+/// day. Tabs are built on first visit and then kept alive, so a half-typed
+/// sale survives a look at the khata.
 class Shell extends StatefulWidget {
   const Shell({super.key});
 
@@ -17,8 +25,8 @@ class Shell extends StatefulWidget {
 }
 
 class _ShellState extends State<Shell> {
-  int _index = 0;
-  final Set<int> _visited = {0};
+  int _index = Tabs.sell;
+  final Set<int> _visited = {Tabs.sell};
 
   void _open(int index) => setState(() {
     _index = index;
@@ -26,10 +34,9 @@ class _ShellState extends State<Shell> {
   });
 
   Widget _tab(int index) => switch (index) {
-    0 => HomeScreen(onOpenTab: _open),
-    1 => const BillingScreen(),
-    2 => const KhataScreen(),
-    3 => const StockScreen(),
+    Tabs.sell => const SellScreen(),
+    Tabs.khata => const KhataScreen(),
+    Tabs.today => HomeScreen(onOpenTab: _open),
     _ => const MoreScreen(),
   };
 
@@ -40,7 +47,7 @@ class _ShellState extends State<Shell> {
       body: IndexedStack(
         index: _index,
         children: [
-          for (var i = 0; i < 5; i++)
+          for (var i = 0; i < 4; i++)
             _visited.contains(i) ? _tab(i) : const SizedBox.shrink(),
         ],
       ),
@@ -49,20 +56,16 @@ class _ShellState extends State<Shell> {
         onDestinationSelected: _open,
         destinations: [
           NavigationDestination(
-            icon: const Icon(Icons.home_outlined),
-            label: tr('home'),
-          ),
-          NavigationDestination(
             icon: const Icon(Icons.point_of_sale),
-            label: tr('billing'),
+            label: tr('sell'),
           ),
           NavigationDestination(
             icon: const Icon(Icons.menu_book_outlined),
             label: tr('khata'),
           ),
           NavigationDestination(
-            icon: const Icon(Icons.inventory_2_outlined),
-            label: tr('stock'),
+            icon: const Icon(Icons.today_outlined),
+            label: tr('today'),
           ),
           NavigationDestination(
             icon: const Icon(Icons.more_horiz),

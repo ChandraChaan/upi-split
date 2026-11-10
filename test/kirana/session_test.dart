@@ -31,7 +31,7 @@ void main() {
   setUpAll(setUpStrings);
 
   Future<void> sellOneSoap(WidgetTester t, Harness h) async {
-    await h.tab('Billing');
+    await h.itemBilling();
     await t.tap(find.byKey(const ValueKey('product_soap')));
     await settle(t);
     await t.tap(find.byKey(const Key('billing_checkout')));

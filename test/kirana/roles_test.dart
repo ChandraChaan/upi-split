@@ -15,8 +15,11 @@ void main() {
 
   testWidgets('a cashier sees no profit, reports or suppliers', (t) async {
     final h = await pumpApp(t, role: MemberRole.cashier);
+    await h.tab('Today');
     expect(find.text("Today's sales"), findsOneWidget);
     expect(find.byKey(const Key('home_profit')), findsNothing);
+    expect(find.byKey(const Key('home_bought')), findsNothing);
+    expect(find.byKey(const Key('quick_market_purchase')), findsNothing);
     expect(find.text('Profit'), findsNothing);
 
     await h.tab('More');
@@ -30,15 +33,21 @@ void main() {
 
   testWidgets('a manager sees profit, reports and suppliers', (t) async {
     final h = await pumpApp(t, role: MemberRole.manager);
+    await h.tab('Today');
     expect(find.byKey(const Key('home_profit')), findsOneWidget);
+    expect(find.byKey(const Key('home_bought')), findsOneWidget);
     await h.tab('More');
+    expect(find.byKey(const Key('more_purchases')), findsOneWidget);
     expect(find.byKey(const Key('more_reports')), findsOneWidget);
     expect(find.byKey(const Key('more_suppliers')), findsOneWidget);
   });
 
   testWidgets('a cashier sees no cost and no product management', (t) async {
     final h = await pumpApp(t, role: MemberRole.cashier);
-    await h.tab('Stock');
+    await h.tab('More');
+    expect(find.byKey(const Key('more_purchases')), findsNothing);
+    await t.tap(find.byKey(const Key('more_stock')));
+    await settle(t);
     expect(find.byKey(const Key('stock_add_product')), findsNothing);
     expect(find.byKey(const Key('stock_inactive_filter')), findsNothing);
 
@@ -78,7 +87,7 @@ void main() {
   testWidgets('a cashier cannot void a bill or an expense', (t) async {
     final h = await pumpApp(t, role: MemberRole.cashier);
     final repo = h.session.repository;
-    await h.tab('Billing');
+    await h.itemBilling();
     await t.tap(find.byKey(const ValueKey('product_soap')));
     await settle(t);
     await t.tap(find.byKey(const Key('billing_checkout')));
@@ -111,7 +120,7 @@ void main() {
 
   testWidgets('a manager voids a bill with a required reason', (t) async {
     final h = await pumpApp(t, role: MemberRole.manager);
-    await h.tab('Billing');
+    await h.itemBilling();
     await t.tap(find.byKey(const ValueKey('product_soap')));
     await settle(t);
     await t.tap(find.byKey(const Key('billing_checkout')));
