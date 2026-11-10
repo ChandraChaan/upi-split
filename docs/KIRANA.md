@@ -75,8 +75,12 @@ firebase deploy --only firestore,auth
 ```
 
 ```bash
-cd apps/admin && flutter build web --release && cd ../.. && firebase deploy --only hosting
+./scripts/build_hosting.sh && firebase deploy --only hosting
 ```
+
+That builds the web admin at `/` and the Shop web app at `/shop/` (for
+iPhones; see [apps/shop_web](../apps/shop_web/README.md)) into
+`build/hosting`, which is what Hosting serves.
 
 For Play Store builds, run `flutter build appbundle --release` at the repo root.
 `android/key.properties` must point at the UPI Split upload keystore. See

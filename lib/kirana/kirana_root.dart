@@ -2,6 +2,7 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:kirana_core/kirana_core.dart';
@@ -27,10 +28,13 @@ class _ShopServices {
 /// back to bill splitting. Firebase stays untouched until the shop is opened.
 Future<_ShopServices>? _services;
 
-Future<_ShopServices> _start(SharedPreferences prefs) async {
+Future<_ShopServices> _start(
+  SharedPreferences prefs,
+  FirebaseOptions options,
+) async {
   Tr.register(en: mobileEn, te: mobileTe);
   await initializeDateFormatting();
-  await initKiranaFirebase(kiranaMobileOptions);
+  await initKiranaFirebase(options);
   await _chooseFirstLanguage(prefs);
 
   final db = FirebaseFirestore.instance;
@@ -54,20 +58,31 @@ Future<void> _chooseFirstLanguage(SharedPreferences prefs) async {
 }
 
 class KiranaRoot extends StatefulWidget {
-  const KiranaRoot({super.key, required this.prefs, required this.onExit});
+  const KiranaRoot({
+    super.key,
+    required this.prefs,
+    this.onExit,
+    this.options = kiranaMobileOptions,
+  });
 
   final SharedPreferences prefs;
-  final VoidCallback onExit;
+
+  /// Back to UPI Split. Null in the web Shop, which stands alone.
+  final VoidCallback? onExit;
+  final FirebaseOptions options;
 
   @override
   State<KiranaRoot> createState() => _KiranaRootState();
 }
 
 class _KiranaRootState extends State<KiranaRoot> {
-  late Future<_ShopServices> _ready = _services ??= _start(widget.prefs);
+  late Future<_ShopServices> _ready = _services ??= _start(
+    widget.prefs,
+    widget.options,
+  );
 
   void _retry() {
-    setState(() => _ready = _services = _start(widget.prefs));
+    setState(() => _ready = _services = _start(widget.prefs, widget.options));
   }
 
   @override
@@ -96,10 +111,10 @@ class _KiranaRootState extends State<KiranaRoot> {
 }
 
 class _StartupFailed extends StatelessWidget {
-  const _StartupFailed({required this.onRetry, required this.onExit});
+  const _StartupFailed({required this.onRetry, this.onExit});
 
   final VoidCallback onRetry;
-  final VoidCallback onExit;
+  final VoidCallback? onExit;
 
   @override
   Widget build(BuildContext context) {
@@ -113,10 +128,11 @@ class _StartupFailed extends StatelessWidget {
               const Text('The shop could not start.'),
               const SizedBox(height: 16),
               FilledButton(onPressed: onRetry, child: const Text('Try again')),
-              TextButton(
-                onPressed: onExit,
-                child: const Text('Back to UPI Split'),
-              ),
+              if (onExit != null)
+                TextButton(
+                  onPressed: onExit,
+                  child: const Text('Back to UPI Split'),
+                ),
             ],
           ),
         ),
