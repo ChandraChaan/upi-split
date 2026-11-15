@@ -93,6 +93,10 @@ flutter run                  # Android, with Shop
 | `apps/shop_web/` | Shop as a web app, for iPhones |
 | `firestore.rules`, `firebase_tests/` | Shop's security rules and their tests |
 
+### Testing the UPI hand-off on Android
+
+The **Pay with a UPI app** button opens a `upi://pay` link, and real payment apps are hard to test against: you can't make one return a failure, a pending status or a broken response on demand. [FakePay](https://github.com/ChandraChaan/fakepay) is a small open-source Android app that registers for `upi://pay`, moves no money, and answers with the result you pick. Install it on an emulator or test phone and choose it in the app chooser to try the cancelled, failed and pending paths. It also flags requests a strict UPI app would reject.
+
 Running Shop against local emulators, and how to release it, are covered in [docs/KIRANA.md](docs/KIRANA.md). Known limits are in [docs/KIRANA_SECURITY.md](docs/KIRANA_SECURITY.md).
 
 Ideas and bug reports are welcome in [issues](https://github.com/ChandraChaan/upi-split/issues) and [discussions](https://github.com/ChandraChaan/upi-split/discussions).
