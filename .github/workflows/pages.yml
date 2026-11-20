@@ -22,6 +22,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.44.5
       - run: flutter build web --release --base-href /upi-split/
       - uses: actions/upload-pages-artifact@v3
         with:

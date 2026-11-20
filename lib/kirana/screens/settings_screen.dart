@@ -1,9 +1,29 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:kirana_core/kirana_core.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../util/labels.dart';
 import '../widgets/common.dart';
+import 'auth_screen.dart';
+
+const privacyPolicyUrl =
+    'https://chandrachaan.github.io/app-policies/upi-split/privacy.html';
+
+Future<void> openPrivacyPolicy(BuildContext context) async {
+  final tr = context.trNow;
+  var opened = false;
+  try {
+    opened = await launchUrl(
+      Uri.parse(privacyPolicyUrl),
+      mode: LaunchMode.externalApplication,
+    );
+  } catch (e) {
+    debugPrint('Privacy policy launch failed: $e');
+  }
+  if (!opened && context.mounted) showMessage(context, tr('open_app_failed'));
+}
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -102,7 +122,138 @@ class SettingsScreen extends StatelessWidget {
             label: Text(tr('sign_out')),
             onPressed: () => _signOut(context),
           ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            key: const Key('privacy_policy'),
+            icon: const Icon(Icons.privacy_tip_outlined),
+            label: Text(tr('privacy_policy')),
+            onPressed: () => openPrivacyPolicy(context),
+          ),
+          TextButton.icon(
+            key: const Key('delete_account'),
+            style: TextButton.styleFrom(foregroundColor: KiranaColors.dues),
+            icon: const Icon(Icons.delete_forever_outlined),
+            label: Text(tr('delete_account')),
+            onPressed: () => push(context, const DeleteAccountScreen()),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Play requires an in-app way to delete an account that the app created.
+class DeleteAccountScreen extends StatefulWidget {
+  const DeleteAccountScreen({super.key});
+
+  @override
+  State<DeleteAccountScreen> createState() => _DeleteAccountScreenState();
+}
+
+class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
+  final _form = GlobalKey<FormState>();
+  final _password = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _delete() async {
+    if (!_form.currentState!.validate()) return;
+    final tr = context.trNow;
+    final session = context.session;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final ok = await confirm(
+      context,
+      title: tr('delete_account'),
+      body: tr('delete_account_confirm'),
+      action: tr('delete_account'),
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await session.deleteAccount(_password.text);
+      messenger.showSnackBar(SnackBar(content: Text(tr('account_deleted'))));
+      if (navigator.mounted) navigator.popUntil((r) => r.isFirst);
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = e.code == 'requires-recent-login'
+              ? tr('auth_wrong_credentials')
+              : authErrorMessage(tr, e);
+        });
+      }
+    } catch (e) {
+      debugPrint('Account deletion failed: $e');
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = tr('error_generic');
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = context.tr;
+    final session = context.watch<SessionController>();
+    final isOwner = session.member?.role.isOwner ?? false;
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: KiranaBar(title: tr('delete_account')),
+      body: Form(
+        key: _form,
+        child: ScrollColumn(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              tr(isOwner ? 'delete_account_owner' : 'delete_account_staff'),
+              style: theme.textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 12),
+            Text(tr('delete_account_split'), style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 20),
+            TextFormField(
+              key: const Key('delete_password'),
+              controller: _password,
+              obscureText: true,
+              enabled: !_busy,
+              autofillHints: const [AutofillHints.password],
+              decoration: InputDecoration(
+                labelText: tr('delete_account_password'),
+              ),
+              validator: V.required(tr),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(_error!, style: const TextStyle(color: KiranaColors.dues)),
+            ],
+          ],
+        ),
+      ),
+      bottomNavigationBar: BottomAction(
+        child: FilledButton(
+          key: const Key('delete_confirm'),
+          style: FilledButton.styleFrom(backgroundColor: KiranaColors.dues),
+          onPressed: _busy ? null : _delete,
+          child: _busy
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(tr('delete_account')),
+        ),
       ),
     );
   }

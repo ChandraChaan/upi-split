@@ -253,6 +253,16 @@ const Map<String, String> mobileEn = {
   'invalid_upi': 'That UPI ID does not look right',
   'receipt_footer': 'Receipt footer',
   'sign_out_body': 'Sign out from this phone?',
+  'privacy_policy': 'Privacy policy',
+  'delete_account': 'Delete account',
+  'delete_account_owner':
+      "This deletes your login. Your shop's records (customers, khata, bills, stock, suppliers and expenses) are erased from our servers within 30 days, and staff you invited lose access. This cannot be undone.",
+  'delete_account_staff':
+      "This deletes your login. Entries you made stay in the shop owner's books, because they are the shop's records. This cannot be undone.",
+  'delete_account_split': 'Bill splits saved on this phone are not affected.',
+  'delete_account_password': 'Enter your password to confirm',
+  'delete_account_confirm': 'Delete your account permanently?',
+  'account_deleted': 'Your account has been deleted.',
 
   // Shown in the "server rejected a change" message
   'op_save_customer': 'customer details',
@@ -583,6 +593,16 @@ const Map<String, String> mobileTe = {
   'invalid_upi': 'UPI ID సరిగ్గా లేదు',
   'receipt_footer': 'రసీదు చివర రాయాల్సిన మాట',
   'sign_out_body': 'ఈ ఫోన్ నుండి లాగ్ అవుట్ అవ్వాలా?',
+  'privacy_policy': 'గోప్యతా విధానం',
+  'delete_account': 'అకౌంట్ తొలగించండి',
+  'delete_account_owner':
+      'దీంతో మీ లాగిన్ తొలగిపోతుంది. మీ దుకాణం రికార్డులు (కస్టమర్లు, ఖాతా పద్దులు, బిల్లులు, స్టాక్, సరఫరాదారులు, ఖర్చులు) 30 రోజుల్లో మా సర్వర్ల నుండి పూర్తిగా తొలగిస్తాం. మీరు చేర్చుకున్న సిబ్బందికి యాక్సెస్ పోతుంది. దీన్ని వెనక్కి తీసుకోలేరు.',
+  'delete_account_staff':
+      'దీంతో మీ లాగిన్ తొలగిపోతుంది. మీరు రాసిన పద్దులు దుకాణం రికార్డులు కాబట్టి యజమాని లెక్కల్లో అలాగే ఉంటాయి. దీన్ని వెనక్కి తీసుకోలేరు.',
+  'delete_account_split': 'ఈ ఫోన్‌లో దాచిన బిల్ పంపకాలు అలాగే ఉంటాయి.',
+  'delete_account_password': 'నిర్ధారించడానికి మీ పాస్‌వర్డ్ ఇవ్వండి',
+  'delete_account_confirm': 'మీ అకౌంట్‌ను శాశ్వతంగా తొలగించాలా?',
+  'account_deleted': 'మీ అకౌంట్ తొలగించబడింది.',
 
   // Shown in the "server rejected a change" message
   'op_save_customer': 'కస్టమర్ వివరాలు',
