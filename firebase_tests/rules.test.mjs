@@ -313,3 +313,23 @@ describe('expenses and rollups', () => {
     await assertFails(deleteDoc(doc(db('owner'), `${S}/days/2026-01-01`)));
   });
 });
+
+describe('account deletion', () => {
+  const flag = () => ({ deletionRequestedAt: serverTimestamp(), deletionRequestedBy: 'owner' });
+  test('the owner can flag their business for erasure', () =>
+    assertSucceeds(updateDoc(doc(db('owner'), 'businesses/b1'), flag())));
+  test('a manager cannot flag the business', () =>
+    assertFails(updateDoc(doc(db('mgr'), 'businesses/b1'), flag())));
+  test('another owner cannot flag someone else\'s business', () =>
+    assertFails(updateDoc(doc(db('rival'), 'businesses/b1'), flag())));
+  test('a user can delete their own profile', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'users/cash'), { businessId: 'b1' }));
+    await assertSucceeds(deleteDoc(doc(db('cash'), 'users/cash')));
+  });
+  test('a user cannot delete someone else\'s profile', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'users/owner'), { businessId: 'b1' }));
+    await assertFails(deleteDoc(doc(db('cash'), 'users/owner')));
+  });
+});

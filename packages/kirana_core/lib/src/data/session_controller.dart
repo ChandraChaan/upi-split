@@ -100,6 +100,38 @@ class SessionController extends ChangeNotifier {
 
   Future<void> signOut() => auth.signOut();
 
+  /// Deletes the signed-in account after checking [password] again.
+  ///
+  /// The rules keep ledgers append-only, so the app cannot erase a shop's
+  /// records itself. An owner's business is flagged with
+  /// `deletionRequestedAt` instead, and the developer erases it (see
+  /// docs/ACCOUNT_DELETION.md). A staff member's entries stay in the owner's
+  /// books. Needs the internet: re-authentication fails fast without it.
+  Future<void> deleteAccount(String password) async {
+    final current = auth.currentUser;
+    if (current == null) throw StateError('Not signed in');
+    final email = current.email;
+    if (email != null) {
+      await current.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: email, password: password),
+      );
+    }
+    // Stop listening first, so removing users/{uid} does not flash onboarding.
+    _cancelData();
+    final b = business;
+    final m = member;
+    if (b != null && m != null && m.role.isOwner && b.ownerUid == current.uid) {
+      await db.doc('businesses/${b.id}').update({
+        'deletionRequestedAt': FieldValue.serverTimestamp(),
+        'deletionRequestedBy': current.uid,
+      });
+    }
+    await db.doc('users/${current.uid}').delete();
+    await current.delete();
+    // Real Firebase signs out on delete; this keeps every auth backend in step.
+    await auth.signOut();
+  }
+
   /// Bill number unique across offline devices: day, device tag, sequence.
   /// Example: 261109-K7-14.
   Future<String> nextBillNumber([DateTime? now]) async {
